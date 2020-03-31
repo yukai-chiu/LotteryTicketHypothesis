@@ -9,7 +9,6 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torchvision
 import torchvision.transforms as transforms
-import matplotlib.pyplot as plt
 
 #Custom libs
 import models
