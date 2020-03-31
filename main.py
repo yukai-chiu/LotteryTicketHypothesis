@@ -147,7 +147,7 @@ def validatate_epoch(model, device, validation_loader, criterion, scheduler):
         validation_acc = (correct_predictions_validation/total_predictions_validation)*100.0
     return(np.mean(batch_losses_validation), validation_acc)
 
-def prune(net, prune_amount, prune_iter):
+def prune(net, prune_amount):
     pass
 
 if __name__=="__main__":
