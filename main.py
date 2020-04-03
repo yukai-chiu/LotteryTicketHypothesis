@@ -9,6 +9,8 @@ import torch.nn.functional as F
 from torch.utils.data import DataLoader
 import torchvision
 import torchvision.transforms as transforms
+import torch.nn.utils.prune as prune
+
 
 #Custom libs
 import models
@@ -22,9 +24,10 @@ def main(args):
     num_workers = 4 if cuda else 0 
 
     #Hyper-parameters
-    num_prunes = 5
+    #TODO: interate the args
+    num_prunes = args.n_prune
     prune_amount = 0.1
-    epochs = 50
+    epochs = args.n_epoch
     learning_rate = 1e-3
     weightDecay = 1e-4
 
@@ -53,7 +56,11 @@ def main(args):
 
     #intialize model and training parameters
     #TODO: if statement to handle different models
-    net = models.resnet18(pretrained=False)
+    if args.model == 'resnet18':
+        net = models.resnet18(pretrained=False)
+  
+
+
     initial_state = copy.deepcopy(net.state_dict())
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weightDecay)
@@ -73,10 +80,11 @@ def main(args):
             print('Validataion Loss: ', validation_loss)
             print('='*50)
 
-    #TODO: implement a global pruning function
-    #order of these two lines depends on how we implement prune
-    net.load_state_dict(initial_state)
-    prune(net, prune_amount)
+        #TODO: implement a global pruning function
+        #order of these two lines depends on how we implement prune
+        #TODO: implement loading initial weights
+        #net.load_state_dict(initial_state)
+        my_prune(net, prune_amount)
 
 
 def train_epoch(model, device, train_loader, criterion, optimizer):
@@ -147,11 +155,107 @@ def validatate_epoch(model, device, validation_loader, criterion, scheduler):
         validation_acc = (correct_predictions_validation/total_predictions_validation)*100.0
     return(np.mean(batch_losses_validation), validation_acc)
 
-def prune(net, prune_amount):
-    pass
+def my_prune(net, prune_amount):
+
+    #TODO: separate prune into custom lib
+    #TODO: function naming 
+    #extract weights
+    parameters_to_prune = []
+    parameters_to_prune.append((net._modules['conv1'],'weight'))
+
+    parameters_to_prune.append((net._modules['layer1'][0]._modules['conv1'],'weight'))
+    parameters_to_prune.append((net._modules['layer1'][0]._modules['conv2'],'weight'))
+    parameters_to_prune.append((net._modules['layer1'][1]._modules['conv1'],'weight'))
+    parameters_to_prune.append((net._modules['layer1'][1]._modules['conv2'],'weight'))
+
+    parameters_to_prune.append((net._modules['layer2'][0]._modules['conv1'],'weight'))
+    parameters_to_prune.append((net._modules['layer2'][0]._modules['conv2'],'weight'))
+    parameters_to_prune.append((net._modules['layer2'][0]._modules['downsample'][0],'weight'))
+    parameters_to_prune.append((net._modules['layer2'][1]._modules['conv1'],'weight'))
+    parameters_to_prune.append((net._modules['layer2'][1]._modules['conv2'],'weight'))
+
+    parameters_to_prune.append((net._modules['layer3'][0]._modules['conv1'],'weight'))
+    parameters_to_prune.append((net._modules['layer3'][0]._modules['conv2'],'weight'))
+    parameters_to_prune.append((net._modules['layer3'][0]._modules['downsample'][0],'weight'))
+    parameters_to_prune.append((net._modules['layer3'][1]._modules['conv1'],'weight'))
+    parameters_to_prune.append((net._modules['layer3'][1]._modules['conv2'],'weight'))
+
+    parameters_to_prune.append((net._modules['layer4'][0]._modules['conv1'],'weight'))
+    parameters_to_prune.append((net._modules['layer4'][0]._modules['conv2'],'weight'))
+    parameters_to_prune.append((net._modules['layer4'][0]._modules['downsample'][0],'weight'))
+    parameters_to_prune.append((net._modules['layer4'][1]._modules['conv1'],'weight'))
+    parameters_to_prune.append((net._modules['layer4'][1]._modules['conv2'],'weight'))
+
+    parameters_to_prune.append((net._modules['fc'],'weight'))
+    #print(parameters_to_prune)
+
+    #global prune
+    #TODO: change pruning method to L2-norm
+    prune.global_unstructured(
+    parameters_to_prune,
+    pruning_method=prune.L1Unstructured,
+    amount=prune_amount,
+    )
+
+    #print global sparsity after pruning
+    print(
+    "Global sparsity: {:.2f}%".format(
+        100. * float(
+            torch.sum(net.conv1.weight == 0)
+            + torch.sum(net._modules['layer1'][0]._modules['conv1'].weight == 0)
+            + torch.sum(net._modules['layer1'][0]._modules['conv2'].weight == 0)
+            + torch.sum(net._modules['layer1'][1]._modules['conv1'].weight == 0)
+            + torch.sum(net._modules['layer1'][1]._modules['conv2'].weight == 0)
+            + torch.sum(net._modules['layer2'][0]._modules['conv1'].weight == 0)
+            + torch.sum(net._modules['layer2'][0]._modules['conv2'].weight == 0)
+            + torch.sum(net._modules['layer2'][0]._modules['downsample'][0].weight == 0)
+            + torch.sum(net._modules['layer2'][1]._modules['conv1'].weight == 0)
+            + torch.sum(net._modules['layer2'][1]._modules['conv2'].weight == 0)
+            + torch.sum(net._modules['layer3'][0]._modules['conv1'].weight == 0)
+            + torch.sum(net._modules['layer3'][0]._modules['conv2'].weight == 0)
+            + torch.sum(net._modules['layer3'][0]._modules['downsample'][0].weight == 0)
+            + torch.sum(net._modules['layer3'][1]._modules['conv1'].weight == 0)
+            + torch.sum(net._modules['layer3'][1]._modules['conv2'].weight == 0)
+            + torch.sum(net._modules['layer4'][0]._modules['conv1'].weight == 0)
+            + torch.sum(net._modules['layer4'][0]._modules['conv2'].weight == 0)
+            + torch.sum(net._modules['layer4'][0]._modules['downsample'][0].weight == 0)
+            + torch.sum(net._modules['layer4'][1]._modules['conv1'].weight == 0)
+            + torch.sum(net._modules['layer4'][1]._modules['conv2'].weight == 0)
+            + torch.sum(net.fc.weight == 0)
+        )
+        / float(
+            net.conv1.weight.nelement()
+            + net._modules['layer1'][0]._modules['conv1'].weight.nelement()
+            + net._modules['layer1'][0]._modules['conv2'].weight.nelement()
+            + net._modules['layer1'][1]._modules['conv1'].weight.nelement()
+            + net._modules['layer1'][1]._modules['conv2'].weight.nelement()
+            + net._modules['layer2'][0]._modules['conv1'].weight.nelement()
+            + net._modules['layer2'][0]._modules['conv2'].weight.nelement()
+            + net._modules['layer2'][0]._modules['downsample'][0].weight.nelement()
+            + net._modules['layer2'][1]._modules['conv1'].weight.nelement()
+            + net._modules['layer2'][1]._modules['conv2'].weight.nelement()
+            + net._modules['layer3'][0]._modules['conv1'].weight.nelement()
+            + net._modules['layer3'][0]._modules['conv2'].weight.nelement()
+            + net._modules['layer3'][0]._modules['downsample'][0].weight.nelement()
+            + net._modules['layer3'][1]._modules['conv1'].weight.nelement()
+            + net._modules['layer3'][1]._modules['conv2'].weight.nelement()
+            + net._modules['layer4'][0]._modules['conv1'].weight.nelement()
+            + net._modules['layer4'][0]._modules['conv2'].weight.nelement()
+            + net._modules['layer4'][0]._modules['downsample'][0].weight.nelement()
+            + net._modules['layer4'][1]._modules['conv1'].weight.nelement()
+            + net._modules['layer4'][1]._modules['conv2'].weight.nelement()
+             + net.fc.weight.nelement()
+            )
+        )
+    )
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
+    #added argument for parser
+    parser.add_argument('--model', default='resnet18', help='')
+    parser.add_argument('--n_epoch', type=int, default=1,help='')
+    parser.add_argument('--n_prune', type=int, default=5,help='')
+    
 
     args = parser.parse_args()
     main(args)

@@ -5,4 +5,3 @@ def resnet18(pretrained=False, progress=True, **kwargs):
     net = torchvision.models.resnet18(pretrained=pretrained, progress=progress, **kwargs)
     return(net)
         
-        
