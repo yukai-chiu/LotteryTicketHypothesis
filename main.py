@@ -30,6 +30,8 @@ def main(args):
     epochs = args.n_epoch
     learning_rate = 1e-3
     weightDecay = 1e-4
+    warm_up_k = args.n_warm_up
+    warm_up_iter = 0
 
     #Transforms
     train_transforms = [
@@ -71,7 +73,7 @@ def main(args):
         for i in range(epochs):
             print('Epoch: '+ str(i)+' ('+str(prune_cycle)+' prunings)')
 
-            train_loss, train_acc = train_epoch(net, device, training_loader, criterion, optimizer)
+            train_loss, train_acc, warm_up_iter = train_epoch(net, device, training_loader, criterion, optimizer, warm_up_iter, warm_up_k, learning_rate)
             validation_loss, validation_acc = validatate_epoch(net, device, validation_loader, criterion, scheduler)
 
             print('Training Accuracy: ', train_acc, "%")
@@ -87,7 +89,7 @@ def main(args):
         net = my_prune(net, prune_amount,initial_state)
 
 
-def train_epoch(model, device, train_loader, criterion, optimizer):
+def train_epoch(model, device, train_loader, criterion, optimizer, k, warm_up, lr):
     
     batch_losses_training = []
     
@@ -97,7 +99,7 @@ def train_epoch(model, device, train_loader, criterion, optimizer):
     correct_predictions_training = 0
     model.train()
     
-    for batch, labels in tqdm(train_loader):
+    for batch_idx, (batch, labels) in enumerate(tqdm(train_loader)):
         optimizer.zero_grad()
         batch = batch.type(torch.FloatTensor).to(device)
         labels = labels.to(device)
@@ -113,14 +115,17 @@ def train_epoch(model, device, train_loader, criterion, optimizer):
         
         loss.backward()
         optimizer.step()
-        
+        #warn up
+        if k <= warm_up:
+            k = learning_rate_scheduler(optimizer, k, warm_up, lr)
+
         torch.cuda.empty_cache()
         del batch
         del labels
         del loss
-        
+
     training_acc = (correct_predictions_training/total_predictions_training)*100.0
-    return (np.mean(batch_losses_training), training_acc)
+    return (np.mean(batch_losses_training), training_acc, k)
 
 def validatate_epoch(model, device, validation_loader, criterion, scheduler):
     with torch.no_grad():
@@ -154,6 +159,12 @@ def validatate_epoch(model, device, validation_loader, criterion, scheduler):
 
         validation_acc = (correct_predictions_validation/total_predictions_validation)*100.0
     return(np.mean(batch_losses_validation), validation_acc)
+
+
+def learning_rate_scheduler(my_optim, k, warm_up, lr):
+    for param_group in my_optim.param_groups:
+        param_group['lr'] = (k / warm_up) * lr
+    return k + 1
 
 def my_prune(net, prune_amount,initial_state):
 
@@ -317,7 +328,7 @@ if __name__=="__main__":
     parser.add_argument('--model', default='resnet18', help='')
     parser.add_argument('--n_epoch', type=int, default=1,help='')
     parser.add_argument('--n_prune', type=int, default=5,help='')
-    
+    parser.add_argument('--n_warm_up', type=int, default=20000,help='')
 
     args = parser.parse_args()
     main(args)
