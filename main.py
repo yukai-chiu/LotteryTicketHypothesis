@@ -32,7 +32,6 @@ def main(args):
     num_prunes = args.n_prune
     prune_amount = args.prune_amount
     epochs = args.n_epoch
-    learning_rate = args.lr
     weight_decay = args.weight_decay
     warm_up_k = args.n_warm_up
     warm_up_iter = 0
@@ -90,6 +89,7 @@ def main(args):
     results['test_loss'] = {}
 
     for prune_cycle in range(num_prunes):
+        learning_rate = args.lr
         results['train_accuracy']['prune_{0}'.format(global_sparsity)] = []
         results['test_accuracy']['prune_{0}'.format(global_sparsity)] = []
         results['train_loss']['prune_{0}'.format(global_sparsity)] = []
@@ -119,7 +119,7 @@ def main(args):
 
             if epoch in [14, 19]:
                 learning_rate *= 0.1
-                optimizer = torch.optim.SGD(params, lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
+                optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
             
             print('='*50)
         writer.close()
