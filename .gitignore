@@ -1,3 +1,5 @@
 __pycache__/
 /data/*
 !/data/.gitkeep 
+*.p
+*.DESKTOP-554SJKA
