@@ -79,8 +79,6 @@ def main(args):
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weightDecay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=2)
     net.to(device)
-
-    writer = SummaryWriter()
     
     global_sparsity = 100
     results = {}
@@ -94,30 +92,31 @@ def main(args):
         results['test_accuracy']['prune_{0}'.format(global_sparsity)] = []
         results['train_loss']['prune_{0}'.format(global_sparsity)] = []
         results['test_loss']['prune_{0}'.format(global_sparsity)] = []
+        writer = SummaryWriter('./runs/Lottery_prune_{0}'.format(global_sparsity))
         for epoch in range(epochs):
             print('Epoch: '+ str(epoch)+' ('+str(prune_cycle)+' prunings)')
 
             train_loss, train_acc, warm_up_iter = train_epoch(net, device, training_loader, criterion, optimizer, warm_up_iter, warm_up_k, learning_rate)
             validation_loss, validation_acc = validate_epoch(net, device, validation_loader, criterion, scheduler)
 
-            writer.add_scalar('train/accuracy/prune_{0}'.format(global_sparsity), train_acc, epoch)
+            writer.add_scalar('train/accuracy', train_acc, epoch)
             print('Training Accuracy: ', train_acc, "%")
             results['train_accuracy']['prune_{0}'.format(global_sparsity)].append(train_acc)
 
-            writer.add_scalar('train/loss/prune_{0}'.format(global_sparsity), train_loss, epoch)
+            writer.add_scalar('train/loss', train_loss, epoch)
             print('Training Loss: ', train_loss)
             results['train_loss']['prune_{0}'.format(global_sparsity)].append(train_loss)
             
-            writer.add_scalar('validation/accuracy/prune_{0}'.format(global_sparsity), validation_acc, epoch)
+            writer.add_scalar('validation/accuracy'.format(global_sparsity), validation_acc, epoch)
             print('Validation Accuracy: ', validation_acc, "%")
             results['test_accuracy']['prune_{0}'.format(global_sparsity)].append(validation_acc)
             
-            writer.add_scalar('validation/loss/prune_{0}'.format(global_sparsity), validation_loss, epoch)
+            writer.add_scalar('validation/loss', validation_loss, epoch)
             print('Validataion Loss: ', validation_loss)
             results['test_loss']['prune_{0}'.format(global_sparsity)].append(validation_loss)
 
             print('='*50)
-
+        writer.close()
         pkl.dump(results, open("results_prune_{0}.p".format(global_sparsity), "wb" ))
             
 
@@ -135,7 +134,6 @@ def main(args):
         
 
     pkl.dump(results, open("results_final.p", "wb"))
-    writer.close()
 
 
 
@@ -326,7 +324,6 @@ def my_prune(net,prune_amount,initial_state, weight_init_type):
     else:
         raise("You have not mentioned a weight initialization.")
 
-
     global_sparsity = 100. * float(
             torch.sum(net.conv1.weight == 0)
             + torch.sum(net._modules['layer1'][0]._modules['conv1'].weight == 0)
@@ -372,9 +369,9 @@ def my_prune(net,prune_amount,initial_state, weight_init_type):
             + net._modules['layer4'][1]._modules['conv2'].weight.nelement()
              + net.fc.weight.nelement()
             )
-  
-    return global_sparsity 
-
+    print( "Global sparsity after loading: {:.2f}%".format(global_sparsity))
+    
+    return int(global_sparsity) 
 
 def xavier_init_weights(m):
     if type(m) == nn.Conv2d or type(m) == nn.Linear:
@@ -385,7 +382,7 @@ if __name__=="__main__":
     #added argument for parser
     parser.add_argument('--model', default='resnet18', help='')
     parser.add_argument('--n_epoch', type=int, default=10,help='')
-    parser.add_argument('--n_prune', type=int, default=5,help='')
+    parser.add_argument('--n_prune', type=int, default=10,help='')
     parser.add_argument('--n_warm_up', type=int, default=20000,help='')
     parser.add_argument('--prune_amount', type=float, default=0.1, help='')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning_rate')
