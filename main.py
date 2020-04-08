@@ -24,7 +24,7 @@ def main(args):
     #config
     cuda = torch.cuda.is_available()
     device = torch.device("cuda" if cuda else "cpu")
-    batch_size = 256 if cuda else 64
+    batch_size = 128 if cuda else 64
     num_workers = 4 if cuda else 0 
 
     #Hyper-parameters
@@ -33,10 +33,11 @@ def main(args):
     prune_amount = args.prune_amount
     epochs = args.n_epoch
     learning_rate = args.lr
-    weightDecay = args.weight_decay
+    weight_decay = args.weight_decay
     warm_up_k = args.n_warm_up
     warm_up_iter = 0
     weight_init_type = args.weight_init_type
+    momentum = args.momentum
 
     #Transforms
     train_transforms = [
@@ -76,7 +77,8 @@ def main(args):
 
 
     criterion = nn.CrossEntropyLoss()
-    optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weightDecay)
+    # optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weight_decay)
+    optimizer = optim.SGD(net.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=2)
     net.to(device)
     
@@ -115,9 +117,13 @@ def main(args):
             print('Validataion Loss: ', validation_loss)
             results['test_loss']['prune_{0}'.format(global_sparsity)].append(validation_loss)
 
+            if epoch in [14, 19]:
+                learning_rate *= 0.1
+                optimizer = torch.optim.SGD(params, lr=learning_rate, momentum=momentum, weight_decay=weight_decay)
+            
             print('='*50)
         writer.close()
-        pkl.dump(results, open("results_prune_{0}.p".format(global_sparsity), "wb" ))
+        pkl.dump(results, open("results/results_prune_{0}.p".format(global_sparsity), "wb" ))
             
 
         #TODO: implement a global pruning function
@@ -133,7 +139,7 @@ def main(args):
         global_sparsity = my_prune(net, prune_amount,initial_state, weight_init_type)
         
 
-    pkl.dump(results, open("results_final.p", "wb"))
+    pkl.dump(results, open("results/results_final.p", "wb"))
 
 
 
@@ -385,8 +391,9 @@ if __name__=="__main__":
     parser.add_argument('--n_prune', type=int, default=10,help='')
     parser.add_argument('--n_warm_up', type=int, default=20000,help='')
     parser.add_argument('--prune_amount', type=float, default=0.1, help='')
-    parser.add_argument('--lr', type=float, default=1e-3, help='learning_rate')
+    parser.add_argument('--lr', type=float, default=1e-2, help='learning_rate')
     parser.add_argument('--weight_decay', type=float, default=1e-4)
+    parser.add_argument('--momentum', type=float, default=0.9)
 
     # xavier_init #carry_initial(carry over the first weights) #carry_previous weights
     parser.add_argument('--weight_init_type', type =str, default = 'carry_initial')
