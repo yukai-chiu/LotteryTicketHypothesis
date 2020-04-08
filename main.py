@@ -21,6 +21,8 @@ import models
 import datasets
 
 def main(args):
+
+    global results
     #config
     cuda = torch.cuda.is_available()
     device = torch.device("cuda" if cuda else "cpu")
@@ -90,7 +92,6 @@ def main(args):
     results['test_loss'] = {}
 
     for prune_cycle in range(num_prunes):
-        learning_rate = args.lr
         results['train_accuracy']['prune_{0}'.format(global_sparsity)] = []
         results['test_accuracy']['prune_{0}'.format(global_sparsity)] = []
         results['train_loss']['prune_{0}'.format(global_sparsity)] = []
@@ -99,26 +100,25 @@ def main(args):
         for epoch in range(epochs):
             print('Epoch: '+ str(epoch)+' ('+str(prune_cycle)+' prunings)')
 
-            train_loss, train_acc, warm_up_iter = train_epoch(net, device, training_loader, criterion, optimizer, warm_up_iter, warm_up_k, learning_rate)
-            validation_loss, validation_acc = validate_epoch(net, device, validation_loader, criterion, scheduler)
-
-            writer.add_scalar('train/accuracy', train_acc, epoch)
+            train_loss, train_acc, warm_up_iter = train_epoch(net, device, training_loader, 
+                                                                criterion, optimizer, warm_up_iter, 
+                                                                warm_up_k, learning_rate, writer, epoch)
+            validation_loss, validation_acc = validate_epoch(net, device, validation_loader, 
+                                                                criterion, scheduler, writer, epoch)
+            
             print('Training Accuracy: ', train_acc, "%")
             results['train_accuracy']['prune_{0}'.format(global_sparsity)].append(train_acc)
 
-            writer.add_scalar('train/loss', train_loss, epoch)
             print('Training Loss: ', train_loss)
             results['train_loss']['prune_{0}'.format(global_sparsity)].append(train_loss)
             
-            writer.add_scalar('validation/accuracy'.format(global_sparsity), validation_acc, epoch)
             print('Validation Accuracy: ', validation_acc, "%")
             results['test_accuracy']['prune_{0}'.format(global_sparsity)].append(validation_acc)
             
-            writer.add_scalar('validation/loss', validation_loss, epoch)
             print('Validataion Loss: ', validation_loss)
             results['test_loss']['prune_{0}'.format(global_sparsity)].append(validation_loss)
 
-            if epoch in [14, 19]:
+            if epoch in [7, 9]:
                 optimizer = torch.optim.SGD(net.parameters(), lr=learning_rate*0.1, momentum=momentum, weight_decay=weight_decay)
             
             print('='*50)
@@ -143,7 +143,7 @@ def main(args):
 
 
 
-def train_epoch(model, device, train_loader, criterion, optimizer, k, warm_up, lr):
+def train_epoch(model, device, train_loader, criterion, optimizer, k, warm_up, lr, writer, epoch):
     
     batch_losses_training = []
     
@@ -154,6 +154,7 @@ def train_epoch(model, device, train_loader, criterion, optimizer, k, warm_up, l
     model.train()
     
     for batch_idx, (batch, labels) in enumerate(tqdm(train_loader)):
+        iteration = epoch*len(train_loader) + batch_idx
         optimizer.zero_grad()
         batch = batch.type(torch.FloatTensor).to(device)
         labels = labels.to(device)
@@ -161,11 +162,19 @@ def train_epoch(model, device, train_loader, criterion, optimizer, k, warm_up, l
         outputs = model(batch)
         
         _, predicted = torch.max(outputs.data, 1)
-        total_predictions_training += labels.size(0)
-        correct_predictions_training += (predicted == labels).sum().item()
+        batch_predications_len = labels.size(0)
+        batch_correct_predictions =  (predicted == labels).sum().item()
+        batch_train_acc = (batch_correct_predictions/batch_predications_len)*100.0
+        if iteration % 10 == 0:
+            writer.add_scalar('train/accuracy', batch_train_acc, iteration)
+
+        total_predictions_training += batch_predications_len
+        correct_predictions_training += batch_correct_predictions
 
         loss = criterion(outputs, labels)
         batch_losses_training.append(loss.item()/np.size(batch, axis = 0))
+        if iteration % 10 == 0:
+            writer.add_scalar('train/loss', loss.item(), iteration)
         
         loss.backward()
         optimizer.step()
@@ -182,7 +191,7 @@ def train_epoch(model, device, train_loader, criterion, optimizer, k, warm_up, l
     training_acc = (correct_predictions_training/total_predictions_training)*100.0
     return (np.mean(batch_losses_training), training_acc, k)
 
-def validate_epoch(model, device, validation_loader, criterion, scheduler):
+def validate_epoch(model, device, validation_loader, criterion, scheduler, writer, epoch):
     with torch.no_grad():
         batch_losses_validation = []
 
@@ -192,18 +201,31 @@ def validate_epoch(model, device, validation_loader, criterion, scheduler):
         correct_predictions_validation = 0
         model.eval()
 
-        for batch, labels in tqdm(validation_loader):
+        for batch_idx, (batch, labels) in enumerate(tqdm(validation_loader)):
+            iteration = epoch*len(validation_loader) + batch_idx
             batch = batch.type(torch.FloatTensor).to(device)
             labels = labels.to(device)
 
             outputs = model(batch)
 
             _, predicted = torch.max(outputs.data, 1)
-            total_predictions_validation += labels.size(0)
-            correct_predictions_validation += (predicted == labels).sum().item()
+
+
+            batch_predications_len = labels.size(0)
+            batch_correct_predictions =  (predicted == labels).sum().item()
+            batch_val_acc = (batch_correct_predictions/batch_predications_len)*100.0
+
+            if iteration % 10 == 0:
+                writer.add_scalar('validation/accuracy', batch_val_acc, iteration)
+
+            total_predictions_validation += batch_predications_len
+            correct_predictions_validation += batch_correct_predictions
 
             loss = criterion(outputs, labels)
             batch_losses_validation.append(loss.item()/np.size(batch, axis = 0))
+
+            if iteration % 10 == 0:
+                writer.add_scalar('validation/loss', loss.item(), iteration)
 
             torch.cuda.empty_cache()
             del batch
