@@ -165,7 +165,7 @@ def train_epoch(model, device, train_loader, criterion, optimizer, k, warm_up, l
         
         loss.backward()
         optimizer.step()
-
+       
         #warn up
         if k <= warm_up:
             k = learning_rate_scheduler(optimizer, k, warm_up, lr)
@@ -392,7 +392,7 @@ if __name__=="__main__":
     parser.add_argument('--weight_decay', type=float, default=1e-4)
 
     # xavier_init #carry_initial(carry over the first weights) #carry_previous weights
-    parser.add_argument('--weight_init_type', type = 'string', default = 'carry_initial')
+    parser.add_argument('--weight_init_type', type =str, default = 'carry_initial')
 
     args = parser.parse_args()
     main(args)
