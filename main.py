@@ -36,6 +36,7 @@ def main(args):
     weightDecay = args.weight_decay
     warm_up_k = args.n_warm_up
     warm_up_iter = 0
+    weight_init_type = args.weight_init_type
 
     #Transforms
     train_transforms = [
@@ -69,8 +70,11 @@ def main(args):
         net = models.resnet18(pretrained=False)
   
 
-
+    # if (weight_init_flag == "originial_first")
     initial_state = copy.deepcopy(net.state_dict())
+
+
+
     criterion = nn.CrossEntropyLoss()
     optimizer = optim.Adam(net.parameters(), lr=learning_rate, weight_decay=weightDecay)
     scheduler = torch.optim.lr_scheduler.ReduceLROnPlateau(optimizer, 'min', factor=0.5, patience=2)
@@ -121,8 +125,15 @@ def main(args):
         #order of these two lines depends on how we implement prune
         #TODO: implement loading initial weights
         #net.load_state_dict(initial_state)
-        net, global_sparsity = my_prune(net, prune_amount,initial_state)
-    
+        if (reinit_type == "carry_weights"):
+            initial_state = copy.deepcopy(net.state_dict())
+        else:
+            pass # this will keep the original weights
+        
+
+        net, global_sparsity = my_prune(net, prune_amount,initial_state, weight_init_type)
+        
+
     pkl.dump(results, open("results_final.p", "wb"))
     writer.close()
 
@@ -205,7 +216,7 @@ def learning_rate_scheduler(my_optim, k, warm_up, lr):
         param_group['lr'] = (k / warm_up) * lr
     return k + 1
 
-def my_prune(net,prune_amount,initial_state):
+def my_prune(net,prune_amount,initial_state, weight_init_type):
 
     #TODO: separate prune into custom lib
     #TODO: function naming 
@@ -299,12 +310,21 @@ def my_prune(net,prune_amount,initial_state):
         )
     )
 
+
+    if (weight_init_type == "carry_initial" or weight_init_type == "carry_previous"):
     #load the initial weight
-    for name, param in initial_state.items():
-        if name not in net.state_dict():          
-            net.state_dict()[name+ '_orig'].copy_(param) 
-        else:
-            net.state_dict()[name].copy_(param)
+        for name, param in initial_state.items():
+            if name not in net.state_dict():          
+                net.state_dict()[name+ '_orig'].copy_(param) 
+            else:
+                net.state_dict()[name].copy_(param)
+
+    elif (weight_init_type == "xavier_init"):
+        net.apply(xavier_init_weights)
+
+    else:
+        raise("You have not mentioned a weight initialization.")
+
 
     global_sparsity = 100. * float(
             torch.sum(net.conv1.weight == 0)
@@ -354,6 +374,11 @@ def my_prune(net,prune_amount,initial_state):
     print( "Global sparsity after loading: {:.2f}%".format(global_sparsity))
     return net, global_sparsity 
 
+
+def xavier_init_weights(m):
+    if type(m) == nn.Conv2d or type(m) == nn.Linear:
+        torch.nn.init.xavier_normal_(m.weight.data)
+
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
     #added argument for parser
@@ -364,6 +389,9 @@ if __name__=="__main__":
     parser.add_argument('--prune_amount', type=float, default=0.1, help='')
     parser.add_argument('--lr', type=float, default=1e-3, help='learning_rate')
     parser.add_argument('--weight_decay', type=float, default=1e-4)
+
+    # xavier_init #carry_initial(carry over the first weights) #carry previous weights
+    parser.add_argument('--weight_init_type', type = 'string', default = 'xavier_init')
 
     args = parser.parse_args()
     main(args)
