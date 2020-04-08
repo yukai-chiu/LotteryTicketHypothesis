@@ -125,10 +125,10 @@ def main(args):
         #order of these two lines depends on how we implement prune
         #TODO: implement loading initial weights
         #net.load_state_dict(initial_state)
-        if (reinit_type == "carry_weights"):
+        if (weight_init_type == "carry_previous"):
             initial_state = copy.deepcopy(net.state_dict())
         else:
-            pass # this will keep the original weights
+            pass # this will keep the original weights or use xavier intialization
         
 
         global_sparsity = my_prune(net, prune_amount,initial_state, weight_init_type)
@@ -391,8 +391,8 @@ if __name__=="__main__":
     parser.add_argument('--lr', type=float, default=1e-3, help='learning_rate')
     parser.add_argument('--weight_decay', type=float, default=1e-4)
 
-    # xavier_init #carry_initial(carry over the first weights) #carry previous weights
-    parser.add_argument('--weight_init_type', type = 'string', default = 'xavier_init')
+    # xavier_init #carry_initial(carry over the first weights) #carry_previous weights
+    parser.add_argument('--weight_init_type', type = 'string', default = 'carry_initial')
 
     args = parser.parse_args()
     main(args)
