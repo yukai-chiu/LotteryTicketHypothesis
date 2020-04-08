@@ -121,8 +121,8 @@ def main(args):
         #order of these two lines depends on how we implement prune
         #TODO: implement loading initial weights
         #net.load_state_dict(initial_state)
-        net, global_sparsity = my_prune(net, prune_amount,initial_state)
-    
+        global_sparsity = my_prune(net, prune_amount,initial_state)
+
     pkl.dump(results, open("results_final.p", "wb"))
     writer.close()
 
@@ -154,6 +154,7 @@ def train_epoch(model, device, train_loader, criterion, optimizer, k, warm_up, l
         
         loss.backward()
         optimizer.step()
+
         #warn up
         if k <= warm_up:
             k = learning_rate_scheduler(optimizer, k, warm_up, lr)
@@ -351,8 +352,8 @@ def my_prune(net,prune_amount,initial_state):
             + net._modules['layer4'][1]._modules['conv2'].weight.nelement()
              + net.fc.weight.nelement()
             )
-    print( "Global sparsity after loading: {:.2f}%".format(global_sparsity))
-    return net, global_sparsity 
+  
+    return global_sparsity 
 
 if __name__=="__main__":
     parser = argparse.ArgumentParser()
