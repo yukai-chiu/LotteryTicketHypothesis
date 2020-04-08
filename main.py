@@ -72,7 +72,8 @@ def main(args):
     if args.model == 'resnet18':
         net = models.resnet18(pretrained=False)
   
-
+    global net2
+    net2 = copy.deepcopy(net)
     # if (weight_init_flag == "originial_first")
     initial_state = copy.deepcopy(net.state_dict())
 
@@ -338,19 +339,26 @@ def my_prune(net,prune_amount,initial_state, weight_init_type):
     )
 
 
+    import ipdb;ipdb.set_trace()
     if (weight_init_type == "carry_initial" or weight_init_type == "carry_previous"):
     #load the initial weight
-        for name, param in initial_state.items():
-            if name not in net.state_dict():          
-                net.state_dict()[name+ '_orig'].copy_(param) 
-            else:
-                net.state_dict()[name].copy_(param)
-
+        pass
     elif (weight_init_type == "xavier_init"):
-        net.apply(xavier_init_weights)
-
+        net2.apply(xavier_init_weights)
+        initial_state = copy.deepcopy(net2.state_dict())
     else:
         raise("You have not mentioned a weight initialization.")
+    
+
+    for name, param in initial_state.items():
+        if name not in net.state_dict():          
+            net.state_dict()[name+ '_orig'].copy_(param) 
+        else:
+            net.state_dict()[name].copy_(param)
+
+
+
+
 
     global_sparsity = 100. * float(
             torch.sum(net.conv1.weight == 0)
