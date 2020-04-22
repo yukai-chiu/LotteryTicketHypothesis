@@ -15,10 +15,6 @@ from tensorboardX import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 
-# Custom libs
-import datasets
-import models
-
 
 def main(args):
 
@@ -41,23 +37,32 @@ def main(args):
     weight_init_type = args.weight_init_type
     momentum = args.momentum
 
-    # Transforms
-    train_transforms = [transforms.Grayscale(3), torchvision.transforms.ToTensor()]
-    validation_transforms = [transforms.Grayscale(3), torchvision.transforms.ToTensor()]
-
     # Create datasets and loaders
-    # TODO: if statement to handle differnet datasets
-    training_dataset = datasets.MNIST(
-        root="./data",
-        transform=torchvision.transforms.Compose(train_transforms),
-        download=True,
-    )
-    validation_dataset = datasets.MNIST(
-        root="./data",
-        train=False,
-        transform=torchvision.transforms.Compose(validation_transforms),
-        download=True,
-    )
+    if args.dataset == "MNIST":
+        from datasets.mnist import MNIST
+
+        training_dataset = MNIST(
+            root="./data",
+            transform=torchvision.transforms.Compose(
+                [transforms.Grayscale(3), torchvision.transforms.ToTensor()]
+            ),
+            download=True,
+        )
+        validation_dataset = MNIST(
+            root="./data",
+            train=False,
+            transform=torchvision.transforms.Compose(
+                [transforms.Grayscale(3), torchvision.transforms.ToTensor()]
+            ),
+            download=True,
+        )
+    elif args.dataset == "nyudepthv2":
+        from datasets.nyu import NYUDataset
+
+        training_dataset = NYUDataset(root="./data/nyudepthv2/train", split="train")
+        validation_dataset = NYUDataset(root="./data/nyudepthv2/val", split="val")
+    else:
+        raise NotImplementedError("Invalid dataset input")
 
     training_loader_args = (
         dict(
@@ -84,16 +89,30 @@ def main(args):
     validation_loader = DataLoader(validation_dataset, **validation_loader_args)
 
     # intialize model and training parameters
-    # TODO: if statement to handle different models
     if args.model == "resnet18":
-        net = models.resnet18(pretrained=False)
+        from models.resnet18 import resnet18
+
+        net = resnet18(pretrained=False)
+    elif args.model == "FastDepth":
+        from models.fastdepth import MobileNetSkipAdd
+
+        # Unsure of output size
+        net = MobileNetSkipAdd(output_size=224, pretrained_encoder=True)
+    else:
+        raise NotImplementedError("Invalid model input")
 
     global net2
     net2 = copy.deepcopy(net)
     # if (weight_init_flag == "originial_first")
     initial_state = copy.deepcopy(net.state_dict())
 
-    criterion = nn.CrossEntropyLoss()
+    if args.model == "resnet18":
+        criterion = nn.CrossEntropyLoss()
+    elif args.model == "FastDepth":
+        criterion = nn.L1Loss()
+    else:
+        raise NotImplementedError("Undefined Loss Function")
+
     optimizer = optim.SGD(
         net.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay
     )
@@ -469,6 +488,7 @@ if __name__ == "__main__":
     parser = argparse.ArgumentParser()
     # added argument for parser
     parser.add_argument("--model", default="resnet18", help="")
+    parser.add_argument("--dataset", default="MNIST", help="")
     parser.add_argument("--n_epoch", type=int, default=10, help="")
     parser.add_argument("--n_prune", type=int, default=10, help="")
     parser.add_argument("--n_warm_up", type=int, default=20000, help="")
