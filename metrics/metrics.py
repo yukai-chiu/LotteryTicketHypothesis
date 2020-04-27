@@ -66,7 +66,7 @@ class Metrics:
                 writer.add_scalar("validation/RMSE", self.batch_metrics.rmse, iteration)
                 writer.add_scalar("validation/MAE", self.batch_metrics.mae, iteration)
                 writer.add_scalar(
-                    "validation/DELTA1", self.average_meter[-1].delta1, iteration
+                    "validation/DELTA1", self.batch_metrics.delta1, iteration
                 )
                 # REL not compatible with tensorboardX since it can be inf/NAN, if using TensorboardX commment out the next line
                 writer.add_scalar(
