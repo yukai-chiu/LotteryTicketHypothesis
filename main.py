@@ -247,7 +247,6 @@ def validate_epoch(
         model.eval()
 
         for batch_idx, (batch, labels) in enumerate(tqdm(validation_loader)):
-            iteration = epoch * len(validation_loader) + batch_idx
             batch = batch.type(torch.FloatTensor).to(device)
             labels = labels.to(device)
 
@@ -256,11 +255,10 @@ def validate_epoch(
 
             # Batch metrics
             metrics.update_metrics(outputs, labels, loss)
-            if iteration % 10 == 0:
-                metrics.write_to_tensorboard(writer, iteration)
 
         # Epoch metrics
         final_metrics = metrics.get_epoch_metrics()
+        metrics.write_to_tensorboard(writer, epoch)
         scheduler.step(final_metrics["Loss"])
 
     return final_metrics

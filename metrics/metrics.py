@@ -81,11 +81,16 @@ class Metrics:
     def get_epoch_metrics(self):
         metrics = {}
         if self.dataset == "MNIST":
+            self.batch_losses.append(np.mean(self.batch_losses))
+            self.batch_accuracies.append(
+                (self.correct_predictions / self.total_predictions) * 100.0
+            )
             metrics["Accuracy"] = (
                 self.correct_predictions / self.total_predictions
             ) * 100.0
             metrics["Loss"] = np.mean(self.batch_losses)
         elif self.dataset == "nyudepthv2":
+            self.batch_metrics = self.average_meter.average()
             metrics["RMSE"] = self.average_meter.average().rmse
             metrics["MAE"] = self.average_meter.average().mae
             metrics["DELTA1"] = self.average_meter.average().delta1
