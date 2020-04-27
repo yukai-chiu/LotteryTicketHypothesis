@@ -1,6 +1,7 @@
 import argparse
 import copy
 import pickle as pkl
+import time
 
 import numpy as np
 import torch
@@ -9,11 +10,14 @@ import torch.nn.utils.prune as prune
 import torch.optim as optim
 import torchvision
 import torchvision.transforms as transforms
-from tensorboardX import SummaryWriter
 
-# from torch.utils.tensorboard import SummaryWriter
+# from tensorboardX import SummaryWriter
+
+from torch.utils.tensorboard import SummaryWriter
 from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
+from metrics.metrics import Metrics
+import pdb
 
 
 def main(args):
@@ -23,10 +27,10 @@ def main(args):
     # config
     cuda = torch.cuda.is_available()
     device = torch.device("cuda" if cuda else "cpu")
-    batch_size = 128 if cuda else 64
     num_workers = 4 if cuda else 0
 
     # Hyper-parameters
+    batch_size = args.batch_size
     num_prunes = args.n_prune
     prune_amount = args.prune_amount
     epochs = args.n_epoch
@@ -111,7 +115,7 @@ def main(args):
     elif args.model == "FastDepth":
         criterion = nn.L1Loss()
     else:
-        raise NotImplementedError("Undefined Loss Function")
+        raise NotImplementedError("No loss function defined for that model")
 
     optimizer = optim.SGD(
         net.parameters(), lr=learning_rate, momentum=momentum, weight_decay=weight_decay
@@ -123,21 +127,17 @@ def main(args):
 
     global_sparsity = 0
     results = {}
-    results["train_accuracy"] = {}
-    results["test_accuracy"] = {}
-    results["train_loss"] = {}
-    results["test_loss"] = {}
+
+    run_id = str(int(time.time()))
 
     for prune_cycle in range(num_prunes):
-        results["train_accuracy"]["prune_{0}".format(global_sparsity)] = []
-        results["test_accuracy"]["prune_{0}".format(global_sparsity)] = []
-        results["train_loss"]["prune_{0}".format(global_sparsity)] = []
-        results["test_loss"]["prune_{0}".format(global_sparsity)] = []
-        writer = SummaryWriter("./runs/Lottery_prune_{0}".format(global_sparsity))
+        writer = SummaryWriter(
+            "./runs/" + run_id + "/Lottery_prune_{0}".format(global_sparsity)
+        )
         for epoch in range(epochs):
             print("Epoch: " + str(epoch) + " (" + str(prune_cycle) + " prunings)")
 
-            train_loss, train_acc, warm_up_iter = train_epoch(
+            training_metrics, warm_up_iter = train_epoch(
                 net,
                 device,
                 training_loader,
@@ -149,29 +149,33 @@ def main(args):
                 writer,
                 epoch,
             )
-            validation_loss, validation_acc = validate_epoch(
+            validation_metrics = validate_epoch(
                 net, device, validation_loader, criterion, scheduler, writer, epoch
             )
 
-            print("Training Accuracy: ", train_acc, "%")
-            results["train_accuracy"]["prune_{0}".format(global_sparsity)].append(
-                train_acc
-            )
+            for metric, value in training_metrics.items():
+                if prune_cycle == 0 and epoch == 0:
+                    results["train_" + metric] = {}
+                if epoch == 0:
+                    results["train_" + metric]["prune_{0}".format(global_sparsity)] = []
 
-            print("Training Loss: ", train_loss)
-            results["train_loss"]["prune_{0}".format(global_sparsity)].append(
-                train_loss
-            )
+                print("Training " + metric + ": ", value)
+                results["train_" + metric]["prune_{0}".format(global_sparsity)].append(
+                    value
+                )
 
-            print("Validation Accuracy: ", validation_acc, "%")
-            results["test_accuracy"]["prune_{0}".format(global_sparsity)].append(
-                validation_acc
-            )
+            for metric, value in validation_metrics.items():
+                if prune_cycle == 0 and epoch == 0:
+                    results["validation_" + metric] = {}
+                if epoch == 0:
+                    results["validation_" + metric][
+                        "prune_{0}".format(global_sparsity)
+                    ] = []
 
-            print("Validataion Loss: ", validation_loss)
-            results["test_loss"]["prune_{0}".format(global_sparsity)].append(
-                validation_loss
-            )
+                print("Validation " + metric + ": ", value)
+                results["validation_" + metric][
+                    "prune_{0}".format(global_sparsity)
+                ].append(value)
 
             if epoch in [7, 9]:
                 optimizer = torch.optim.SGD(
@@ -201,13 +205,9 @@ def main(args):
 def train_epoch(
     model, device, train_loader, criterion, optimizer, k, warm_up, lr, writer, epoch
 ):
-
-    batch_losses_training = []
-
     # training phase
     print("Training Progress:")
-    total_predictions_training = 0
-    correct_predictions_training = 0
+    metrics = Metrics(args.dataset, train=True)
     model.train()
 
     for batch_idx, (batch, labels) in enumerate(tqdm(train_loader)):
@@ -217,21 +217,7 @@ def train_epoch(
         labels = labels.to(device)
 
         outputs = model(batch)
-
-        _, predicted = torch.max(outputs.data, 1)
-        batch_predications_len = labels.size(0)
-        batch_correct_predictions = (predicted == labels).sum().item()
-        batch_train_acc = (batch_correct_predictions / batch_predications_len) * 100.0
-        if iteration % 10 == 0:
-            writer.add_scalar("train/accuracy", batch_train_acc, iteration)
-
-        total_predictions_training += batch_predications_len
-        correct_predictions_training += batch_correct_predictions
-
         loss = criterion(outputs, labels)
-        batch_losses_training.append(loss.item() / np.size(batch, axis=0))
-        if iteration % 10 == 0:
-            writer.add_scalar("train/loss", loss.item(), iteration)
 
         loss.backward()
         optimizer.step()
@@ -240,25 +226,24 @@ def train_epoch(
         if k <= warm_up:
             k = learning_rate_scheduler(optimizer, k, warm_up, lr)
 
-        torch.cuda.empty_cache()
-        del batch
-        del labels
-        del loss
+        # Batch metrics
+        metrics.update_metrics(outputs, labels, loss)
+        if iteration % 10 == 0:
+            metrics.write_to_tensorboard(writer, iteration)
 
-    training_acc = (correct_predictions_training / total_predictions_training) * 100.0
-    return (np.mean(batch_losses_training), training_acc, k)
+    # Epoch metrics
+    final_metrics = metrics.get_epoch_metrics()
+
+    return (final_metrics, k)
 
 
 def validate_epoch(
     model, device, validation_loader, criterion, scheduler, writer, epoch
 ):
     with torch.no_grad():
-        batch_losses_validation = []
-
         # validation phase
         print("Validation Progress:")
-        total_predictions_validation = 0
-        correct_predictions_validation = 0
+        metrics = Metrics(args.dataset, train=False)
         model.eval()
 
         for batch_idx, (batch, labels) in enumerate(tqdm(validation_loader)):
@@ -267,36 +252,18 @@ def validate_epoch(
             labels = labels.to(device)
 
             outputs = model(batch)
-
-            _, predicted = torch.max(outputs.data, 1)
-
-            batch_predications_len = labels.size(0)
-            batch_correct_predictions = (predicted == labels).sum().item()
-            batch_val_acc = (batch_correct_predictions / batch_predications_len) * 100.0
-
-            if iteration % 10 == 0:
-                writer.add_scalar("validation/accuracy", batch_val_acc, iteration)
-
-            total_predictions_validation += batch_predications_len
-            correct_predictions_validation += batch_correct_predictions
-
             loss = criterion(outputs, labels)
-            batch_losses_validation.append(loss.item() / np.size(batch, axis=0))
 
+            # Batch metrics
+            metrics.update_metrics(outputs, labels, loss)
             if iteration % 10 == 0:
-                writer.add_scalar("validation/loss", loss.item(), iteration)
+                metrics.write_to_tensorboard(writer, iteration)
 
-            torch.cuda.empty_cache()
-            del batch
-            del labels
-            del loss
+        # Epoch metrics
+        final_metrics = metrics.get_epoch_metrics()
+        scheduler.step(final_metrics["Loss"])
 
-        scheduler.step(np.mean(batch_losses_validation))
-
-        validation_acc = (
-            correct_predictions_validation / total_predictions_validation
-        ) * 100.0
-    return (np.mean(batch_losses_validation), validation_acc)
+    return final_metrics
 
 
 def learning_rate_scheduler(my_optim, k, warm_up, lr):
@@ -496,6 +463,7 @@ if __name__ == "__main__":
     parser.add_argument("--lr", type=float, default=1e-2, help="learning_rate")
     parser.add_argument("--weight_decay", type=float, default=1e-4)
     parser.add_argument("--momentum", type=float, default=0.9)
+    parser.add_argument("--batch_size", type=int, default=128)
 
     # xavier_init
     # carry_initial(carry over the first weights)

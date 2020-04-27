@@ -1,6 +1,8 @@
 __pycache__/
 /data/*
 /runs/*
+/results/*
 !/data/.gitkeep
+!/results/.gitkeep
 *.p
 *.DESKTOP-554SJKA
