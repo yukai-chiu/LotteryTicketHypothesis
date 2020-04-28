@@ -19,10 +19,14 @@ from tqdm.auto import tqdm
 from metrics.metrics import Metrics
 import pdb
 
+import warnings
+warnings.simplefilter(action='ignore', category=FutureWarning)
+
 
 def main(args):
 
     global results
+
 
     # config
     cuda = torch.cuda.is_available()
@@ -64,6 +68,7 @@ def main(args):
         from datasets.nyu import NYUDataset
 
         training_dataset = NYUDataset(root="./data/nyudepthv2/train", split="train")
+        #training_dataset = NYUDataset(root="./data/nyudepthv2/val", split="train")
         validation_dataset = NYUDataset(root="./data/nyudepthv2/val", split="val")
     else:
         raise NotImplementedError("Invalid dataset input")
@@ -124,6 +129,8 @@ def main(args):
         optimizer, "min", factor=0.5, patience=2
     )
     net.to(device)
+
+
 
     global_sparsity = 0
     results = {}
@@ -447,7 +454,57 @@ def my_prune(net, prune_amount, initial_state, weight_init_type, model_type):
         return int(global_sparsity)
 
     elif model_type == "FastDepth":
-        pass
+
+        for i in range(14):
+            layer = getattr(net, "conv{}".format(i))
+            for name, module in layer.named_modules():
+                if isinstance(module, torch.nn.Conv2d):
+                    parameters_to_prune.append((module, "weight"))
+
+        for i in range(1, 7):
+            layer = getattr(net, "decode_conv{}".format(i))
+            for name, module in layer.named_modules(): 
+                if isinstance(module, torch.nn.Conv2d):
+                    parameters_to_prune.append((module, "weight"))
+
+        prune.global_unstructured(
+            parameters_to_prune, pruning_method=prune.L1Unstructured, amount=prune_amount,
+        )
+
+        pruned_weight = 0.0
+        total_weight = 0.0
+
+        for i in range(14):
+            layer = getattr(net, "conv{}".format(i))
+            for name, module in layer.named_modules():
+                if isinstance(module, torch.nn.Conv2d):
+                    pruned_weight += torch.sum(module.weight == 0)
+                    total_weight += module.weight.nelement()
+        for i in range(1, 7):
+            layer = getattr(net, "decode_conv{}".format(i))
+            for name, module in layer.named_modules(): 
+                if isinstance(module, torch.nn.Conv2d):
+                    pruned_weight += torch.sum(module.weight == 0)
+                    total_weight += module.weight.nelement()
+        print("Global sparsity: {:.2f}%".format(100.0 * float(pruned_weight)/ float(total_weight)))
+        global_sparsity = 100.0 * float(pruned_weight)/ float(total_weight)
+
+        if weight_init_type == "carry_initial" or weight_init_type == "carry_previous":
+            # load the initial weight
+            pass
+        elif weight_init_type == "xavier_init":
+            net2.apply(xavier_init_weights)
+            initial_state = copy.deepcopy(net2.state_dict())
+        else:
+            raise ("You have not mentioned a weight initialization.")
+
+        for name, param in initial_state.items():
+            if name not in net.state_dict():
+                net.state_dict()[name + "_orig"].copy_(param)
+            else:
+                net.state_dict()[name].copy_(param)
+
+        return int(global_sparsity)
 
 
 
