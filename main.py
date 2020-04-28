@@ -197,7 +197,7 @@ def main(args):
             # this will keep the original weights or use xavier intialization
             pass
 
-        global_sparsity = my_prune(net, prune_amount, initial_state, weight_init_type)
+        global_sparsity = my_prune(net, prune_amount, initial_state, weight_init_type, args.model)
 
     pkl.dump(results, open("results/results_final.p", "wb"))
 
@@ -270,55 +270,130 @@ def learning_rate_scheduler(my_optim, k, warm_up, lr):
     return k + 1
 
 
-def my_prune(net, prune_amount, initial_state, weight_init_type):
+def my_prune(net, prune_amount, initial_state, weight_init_type, model_type):
 
     # TODO: separate prune into custom lib
     # TODO: function naming
     # extract weights
     parameters_to_prune = []
-    parameters_to_prune.append((net._modules["conv1"], "weight"))
+    if model_type == "resnet18":
+            
+        
+        parameters_to_prune.append((net._modules["conv1"], "weight"))
 
-    parameters_to_prune.append((net._modules["layer1"][0]._modules["conv1"], "weight"))
-    parameters_to_prune.append((net._modules["layer1"][0]._modules["conv2"], "weight"))
-    parameters_to_prune.append((net._modules["layer1"][1]._modules["conv1"], "weight"))
-    parameters_to_prune.append((net._modules["layer1"][1]._modules["conv2"], "weight"))
+        parameters_to_prune.append((net._modules["layer1"][0]._modules["conv1"], "weight"))
+        parameters_to_prune.append((net._modules["layer1"][0]._modules["conv2"], "weight"))
+        parameters_to_prune.append((net._modules["layer1"][1]._modules["conv1"], "weight"))
+        parameters_to_prune.append((net._modules["layer1"][1]._modules["conv2"], "weight"))
 
-    parameters_to_prune.append((net._modules["layer2"][0]._modules["conv1"], "weight"))
-    parameters_to_prune.append((net._modules["layer2"][0]._modules["conv2"], "weight"))
-    parameters_to_prune.append(
-        (net._modules["layer2"][0]._modules["downsample"][0], "weight")
-    )
-    parameters_to_prune.append((net._modules["layer2"][1]._modules["conv1"], "weight"))
-    parameters_to_prune.append((net._modules["layer2"][1]._modules["conv2"], "weight"))
+        parameters_to_prune.append((net._modules["layer2"][0]._modules["conv1"], "weight"))
+        parameters_to_prune.append((net._modules["layer2"][0]._modules["conv2"], "weight"))
+        parameters_to_prune.append(
+            (net._modules["layer2"][0]._modules["downsample"][0], "weight")
+        )
+        parameters_to_prune.append((net._modules["layer2"][1]._modules["conv1"], "weight"))
+        parameters_to_prune.append((net._modules["layer2"][1]._modules["conv2"], "weight"))
 
-    parameters_to_prune.append((net._modules["layer3"][0]._modules["conv1"], "weight"))
-    parameters_to_prune.append((net._modules["layer3"][0]._modules["conv2"], "weight"))
-    parameters_to_prune.append(
-        (net._modules["layer3"][0]._modules["downsample"][0], "weight")
-    )
-    parameters_to_prune.append((net._modules["layer3"][1]._modules["conv1"], "weight"))
-    parameters_to_prune.append((net._modules["layer3"][1]._modules["conv2"], "weight"))
+        parameters_to_prune.append((net._modules["layer3"][0]._modules["conv1"], "weight"))
+        parameters_to_prune.append((net._modules["layer3"][0]._modules["conv2"], "weight"))
+        parameters_to_prune.append(
+            (net._modules["layer3"][0]._modules["downsample"][0], "weight")
+        )
+        parameters_to_prune.append((net._modules["layer3"][1]._modules["conv1"], "weight"))
+        parameters_to_prune.append((net._modules["layer3"][1]._modules["conv2"], "weight"))
 
-    parameters_to_prune.append((net._modules["layer4"][0]._modules["conv1"], "weight"))
-    parameters_to_prune.append((net._modules["layer4"][0]._modules["conv2"], "weight"))
-    parameters_to_prune.append(
-        (net._modules["layer4"][0]._modules["downsample"][0], "weight")
-    )
-    parameters_to_prune.append((net._modules["layer4"][1]._modules["conv1"], "weight"))
-    parameters_to_prune.append((net._modules["layer4"][1]._modules["conv2"], "weight"))
+        parameters_to_prune.append((net._modules["layer4"][0]._modules["conv1"], "weight"))
+        parameters_to_prune.append((net._modules["layer4"][0]._modules["conv2"], "weight"))
+        parameters_to_prune.append(
+            (net._modules["layer4"][0]._modules["downsample"][0], "weight")
+        )
+        parameters_to_prune.append((net._modules["layer4"][1]._modules["conv1"], "weight"))
+        parameters_to_prune.append((net._modules["layer4"][1]._modules["conv2"], "weight"))
 
-    parameters_to_prune.append((net._modules["fc"], "weight"))
-    # print(parameters_to_prune)
+        parameters_to_prune.append((net._modules["fc"], "weight"))
+        # print(parameters_to_prune)
 
-    # global prune
-    # TODO: change pruning method to L2-norm
-    prune.global_unstructured(
-        parameters_to_prune, pruning_method=prune.L1Unstructured, amount=prune_amount,
-    )
+        # global prune
+        # TODO: change pruning method to L2-norm
+        prune.global_unstructured(
+            parameters_to_prune, pruning_method=prune.L1Unstructured, amount=prune_amount,
+        )
 
-    # print global sparsity after pruning
-    print(
-        "Global sparsity: {:.2f}%".format(
+        # print global sparsity after pruning
+        print(
+            "Global sparsity: {:.2f}%".format(
+                100.0
+                * float(
+                    torch.sum(net.conv1.weight == 0)
+                    + torch.sum(net._modules["layer1"][0]._modules["conv1"].weight == 0)
+                    + torch.sum(net._modules["layer1"][0]._modules["conv2"].weight == 0)
+                    + torch.sum(net._modules["layer1"][1]._modules["conv1"].weight == 0)
+                    + torch.sum(net._modules["layer1"][1]._modules["conv2"].weight == 0)
+                    + torch.sum(net._modules["layer2"][0]._modules["conv1"].weight == 0)
+                    + torch.sum(net._modules["layer2"][0]._modules["conv2"].weight == 0)
+                    + torch.sum(
+                        net._modules["layer2"][0]._modules["downsample"][0].weight == 0
+                    )
+                    + torch.sum(net._modules["layer2"][1]._modules["conv1"].weight == 0)
+                    + torch.sum(net._modules["layer2"][1]._modules["conv2"].weight == 0)
+                    + torch.sum(net._modules["layer3"][0]._modules["conv1"].weight == 0)
+                    + torch.sum(net._modules["layer3"][0]._modules["conv2"].weight == 0)
+                    + torch.sum(
+                        net._modules["layer3"][0]._modules["downsample"][0].weight == 0
+                    )
+                    + torch.sum(net._modules["layer3"][1]._modules["conv1"].weight == 0)
+                    + torch.sum(net._modules["layer3"][1]._modules["conv2"].weight == 0)
+                    + torch.sum(net._modules["layer4"][0]._modules["conv1"].weight == 0)
+                    + torch.sum(net._modules["layer4"][0]._modules["conv2"].weight == 0)
+                    + torch.sum(
+                        net._modules["layer4"][0]._modules["downsample"][0].weight == 0
+                    )
+                    + torch.sum(net._modules["layer4"][1]._modules["conv1"].weight == 0)
+                    + torch.sum(net._modules["layer4"][1]._modules["conv2"].weight == 0)
+                    + torch.sum(net.fc.weight == 0)
+                )
+                / float(
+                    net.conv1.weight.nelement()
+                    + net._modules["layer1"][0]._modules["conv1"].weight.nelement()
+                    + net._modules["layer1"][0]._modules["conv2"].weight.nelement()
+                    + net._modules["layer1"][1]._modules["conv1"].weight.nelement()
+                    + net._modules["layer1"][1]._modules["conv2"].weight.nelement()
+                    + net._modules["layer2"][0]._modules["conv1"].weight.nelement()
+                    + net._modules["layer2"][0]._modules["conv2"].weight.nelement()
+                    + net._modules["layer2"][0]._modules["downsample"][0].weight.nelement()
+                    + net._modules["layer2"][1]._modules["conv1"].weight.nelement()
+                    + net._modules["layer2"][1]._modules["conv2"].weight.nelement()
+                    + net._modules["layer3"][0]._modules["conv1"].weight.nelement()
+                    + net._modules["layer3"][0]._modules["conv2"].weight.nelement()
+                    + net._modules["layer3"][0]._modules["downsample"][0].weight.nelement()
+                    + net._modules["layer3"][1]._modules["conv1"].weight.nelement()
+                    + net._modules["layer3"][1]._modules["conv2"].weight.nelement()
+                    + net._modules["layer4"][0]._modules["conv1"].weight.nelement()
+                    + net._modules["layer4"][0]._modules["conv2"].weight.nelement()
+                    + net._modules["layer4"][0]._modules["downsample"][0].weight.nelement()
+                    + net._modules["layer4"][1]._modules["conv1"].weight.nelement()
+                    + net._modules["layer4"][1]._modules["conv2"].weight.nelement()
+                    + net.fc.weight.nelement()
+                )
+            )
+        )
+
+        if weight_init_type == "carry_initial" or weight_init_type == "carry_previous":
+            # load the initial weight
+            pass
+        elif weight_init_type == "xavier_init":
+            net2.apply(xavier_init_weights)
+            initial_state = copy.deepcopy(net2.state_dict())
+        else:
+            raise ("You have not mentioned a weight initialization.")
+
+        for name, param in initial_state.items():
+            if name not in net.state_dict():
+                net.state_dict()[name + "_orig"].copy_(param)
+            else:
+                net.state_dict()[name].copy_(param)
+
+        global_sparsity = (
             100.0
             * float(
                 torch.sum(net.conv1.weight == 0)
@@ -328,23 +403,17 @@ def my_prune(net, prune_amount, initial_state, weight_init_type):
                 + torch.sum(net._modules["layer1"][1]._modules["conv2"].weight == 0)
                 + torch.sum(net._modules["layer2"][0]._modules["conv1"].weight == 0)
                 + torch.sum(net._modules["layer2"][0]._modules["conv2"].weight == 0)
-                + torch.sum(
-                    net._modules["layer2"][0]._modules["downsample"][0].weight == 0
-                )
+                + torch.sum(net._modules["layer2"][0]._modules["downsample"][0].weight == 0)
                 + torch.sum(net._modules["layer2"][1]._modules["conv1"].weight == 0)
                 + torch.sum(net._modules["layer2"][1]._modules["conv2"].weight == 0)
                 + torch.sum(net._modules["layer3"][0]._modules["conv1"].weight == 0)
                 + torch.sum(net._modules["layer3"][0]._modules["conv2"].weight == 0)
-                + torch.sum(
-                    net._modules["layer3"][0]._modules["downsample"][0].weight == 0
-                )
+                + torch.sum(net._modules["layer3"][0]._modules["downsample"][0].weight == 0)
                 + torch.sum(net._modules["layer3"][1]._modules["conv1"].weight == 0)
                 + torch.sum(net._modules["layer3"][1]._modules["conv2"].weight == 0)
                 + torch.sum(net._modules["layer4"][0]._modules["conv1"].weight == 0)
                 + torch.sum(net._modules["layer4"][0]._modules["conv2"].weight == 0)
-                + torch.sum(
-                    net._modules["layer4"][0]._modules["downsample"][0].weight == 0
-                )
+                + torch.sum(net._modules["layer4"][0]._modules["downsample"][0].weight == 0)
                 + torch.sum(net._modules["layer4"][1]._modules["conv1"].weight == 0)
                 + torch.sum(net._modules["layer4"][1]._modules["conv2"].weight == 0)
                 + torch.sum(net.fc.weight == 0)
@@ -373,75 +442,13 @@ def my_prune(net, prune_amount, initial_state, weight_init_type):
                 + net.fc.weight.nelement()
             )
         )
-    )
+        print("Global sparsity after loading: {:.2f}%".format(global_sparsity))
 
-    if weight_init_type == "carry_initial" or weight_init_type == "carry_previous":
-        # load the initial weight
+        return int(global_sparsity)
+
+    elif model_type == "FastDepth":
         pass
-    elif weight_init_type == "xavier_init":
-        net2.apply(xavier_init_weights)
-        initial_state = copy.deepcopy(net2.state_dict())
-    else:
-        raise ("You have not mentioned a weight initialization.")
 
-    for name, param in initial_state.items():
-        if name not in net.state_dict():
-            net.state_dict()[name + "_orig"].copy_(param)
-        else:
-            net.state_dict()[name].copy_(param)
-
-    global_sparsity = (
-        100.0
-        * float(
-            torch.sum(net.conv1.weight == 0)
-            + torch.sum(net._modules["layer1"][0]._modules["conv1"].weight == 0)
-            + torch.sum(net._modules["layer1"][0]._modules["conv2"].weight == 0)
-            + torch.sum(net._modules["layer1"][1]._modules["conv1"].weight == 0)
-            + torch.sum(net._modules["layer1"][1]._modules["conv2"].weight == 0)
-            + torch.sum(net._modules["layer2"][0]._modules["conv1"].weight == 0)
-            + torch.sum(net._modules["layer2"][0]._modules["conv2"].weight == 0)
-            + torch.sum(net._modules["layer2"][0]._modules["downsample"][0].weight == 0)
-            + torch.sum(net._modules["layer2"][1]._modules["conv1"].weight == 0)
-            + torch.sum(net._modules["layer2"][1]._modules["conv2"].weight == 0)
-            + torch.sum(net._modules["layer3"][0]._modules["conv1"].weight == 0)
-            + torch.sum(net._modules["layer3"][0]._modules["conv2"].weight == 0)
-            + torch.sum(net._modules["layer3"][0]._modules["downsample"][0].weight == 0)
-            + torch.sum(net._modules["layer3"][1]._modules["conv1"].weight == 0)
-            + torch.sum(net._modules["layer3"][1]._modules["conv2"].weight == 0)
-            + torch.sum(net._modules["layer4"][0]._modules["conv1"].weight == 0)
-            + torch.sum(net._modules["layer4"][0]._modules["conv2"].weight == 0)
-            + torch.sum(net._modules["layer4"][0]._modules["downsample"][0].weight == 0)
-            + torch.sum(net._modules["layer4"][1]._modules["conv1"].weight == 0)
-            + torch.sum(net._modules["layer4"][1]._modules["conv2"].weight == 0)
-            + torch.sum(net.fc.weight == 0)
-        )
-        / float(
-            net.conv1.weight.nelement()
-            + net._modules["layer1"][0]._modules["conv1"].weight.nelement()
-            + net._modules["layer1"][0]._modules["conv2"].weight.nelement()
-            + net._modules["layer1"][1]._modules["conv1"].weight.nelement()
-            + net._modules["layer1"][1]._modules["conv2"].weight.nelement()
-            + net._modules["layer2"][0]._modules["conv1"].weight.nelement()
-            + net._modules["layer2"][0]._modules["conv2"].weight.nelement()
-            + net._modules["layer2"][0]._modules["downsample"][0].weight.nelement()
-            + net._modules["layer2"][1]._modules["conv1"].weight.nelement()
-            + net._modules["layer2"][1]._modules["conv2"].weight.nelement()
-            + net._modules["layer3"][0]._modules["conv1"].weight.nelement()
-            + net._modules["layer3"][0]._modules["conv2"].weight.nelement()
-            + net._modules["layer3"][0]._modules["downsample"][0].weight.nelement()
-            + net._modules["layer3"][1]._modules["conv1"].weight.nelement()
-            + net._modules["layer3"][1]._modules["conv2"].weight.nelement()
-            + net._modules["layer4"][0]._modules["conv1"].weight.nelement()
-            + net._modules["layer4"][0]._modules["conv2"].weight.nelement()
-            + net._modules["layer4"][0]._modules["downsample"][0].weight.nelement()
-            + net._modules["layer4"][1]._modules["conv1"].weight.nelement()
-            + net._modules["layer4"][1]._modules["conv2"].weight.nelement()
-            + net.fc.weight.nelement()
-        )
-    )
-    print("Global sparsity after loading: {:.2f}%".format(global_sparsity))
-
-    return int(global_sparsity)
 
 
 def xavier_init_weights(m):
