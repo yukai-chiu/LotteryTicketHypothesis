@@ -159,7 +159,8 @@ def main(args):
             validation_metrics = validate_epoch(
                 net, device, validation_loader, criterion, scheduler, writer, epoch
             )
-
+            if (args.vanilla_train):
+                continue
             for metric, value in training_metrics.items():
                 if prune_cycle == 0 and epoch == 0:
                     results["train_" + metric] = {}
@@ -193,6 +194,8 @@ def main(args):
                 )
 
             print("=" * 50)
+        if (args.vanilla_train):
+            continue
         writer.close()
         pkl.dump(
             results, open("results/results_prune_{0}.p".format(global_sparsity), "wb")
@@ -206,7 +209,10 @@ def main(args):
 
         global_sparsity = my_prune(net, prune_amount, initial_state, weight_init_type, args.model)
 
-    pkl.dump(results, open("results/results_final.p", "wb"))
+    if (not(args.vanilla_train)):
+        pkl.dump(results, open("results/results_final.p", "wb"))
+    else:
+        torch.save(net.state_dict(), 'model.pth')
 
 
 def train_epoch(
@@ -526,7 +532,7 @@ if __name__ == "__main__":
     parser.add_argument("--weight_decay", type=float, default=1e-4)
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--batch_size", type=int, default=128)
-
+    parser.add_argument("--vanilla_train", type=bool, default=False)
     # xavier_init
     # carry_initial(carry over the first weights)
     # carry_previous weights
