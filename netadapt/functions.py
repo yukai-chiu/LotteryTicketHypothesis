@@ -130,6 +130,7 @@ def get_network_def_from_model(model, input_data_shape):
                            keys(): layer name (e.g. model.0.1, feature.2 ...)
                            values(): layer properties (dict)
     '''
+
     network_def = OrderedDict()
     state_dict = model.state_dict()
 

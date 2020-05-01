@@ -10,6 +10,11 @@ import warnings
 import common
 import network_utils as networkUtils
 
+#sys.path.append('../LotteryTicketHypothesis/models')
+#import ipdb; ipdb.set_trace()
+from  models.fastdepth import *
+
+
 '''
     The main file of NetAdapt.
     
@@ -280,7 +285,10 @@ def master(args):
         copyfile(args.init_model_path, current_model_path)
 
         # Initialize variables.
-        model = torch.load(current_model_path)
+
+        model = MobileNetSkipAdd(output_size = 224, pretrained_encoder =  False)
+        model.load_state_dict(torch.load('../mode.pth'))
+        #model = torch.load(current_model_path)
         
         # Select network_utils.
         model_arch = args.arch

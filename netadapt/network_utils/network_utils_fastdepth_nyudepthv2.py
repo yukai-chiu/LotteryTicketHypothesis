@@ -11,6 +11,7 @@ import torch.nn as nn
 import torchvision.transforms as transforms
 import torchvision.datasets as datasets
 import torch.utils.data.sampler as sampler
+import math
 
 sys.path.append(os.path.abspath('../'))
 
@@ -101,8 +102,8 @@ class networkUtils_fastdepth_nyudepthv2(NetworkUtilsAbstract):
         self.weight_decay = 1e-4
         self.finetune_lr = finetune_lr
 
-        training_dataset = NYUDataset(root="./data/nyudepthv2/train", split="train")
-        validation_dataset = NYUDataset(root="./data/nyudepthv2/val", split="val")
+        train_dataset = NYUDataset(root="./data/nyudepthv2/train", split="train")
+        val_dataset = NYUDataset(root="./data/nyudepthv2/val", split="val")
         
         
         
