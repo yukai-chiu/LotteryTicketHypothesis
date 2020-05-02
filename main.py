@@ -212,7 +212,7 @@ def main(args):
     if (not(args.vanilla_train)):
         pkl.dump(results, open("results/results_final.p", "wb"))
     else:
-        torch.save(net, 'model.pth')
+        torch.save(net.state_dict(), 'model.pth')
 
 
 def train_epoch(
