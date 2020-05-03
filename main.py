@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 from tqdm.auto import tqdm
 from metrics.metrics import Metrics
 import pdb
-
+from models.fastdepth import weights_init
 import warnings
 warnings.simplefilter(action='ignore', category=FutureWarning)
 
@@ -26,8 +26,6 @@ warnings.simplefilter(action='ignore', category=FutureWarning)
 def main(args):
 
     global results
-
-
     # config
     cuda = torch.cuda.is_available()
     device = torch.device("cuda" if cuda else "cpu")
@@ -185,14 +183,6 @@ def main(args):
                     "prune_{0}".format(global_sparsity)
                 ].append(value)
 
-            if epoch in [7, 9]:
-                optimizer = torch.optim.SGD(
-                    net.parameters(),
-                    lr=learning_rate * 0.1,
-                    momentum=momentum,
-                    weight_decay=weight_decay,
-                )
-
             print("=" * 50)
         if (args.vanilla_train):
             continue
@@ -210,7 +200,7 @@ def main(args):
         global_sparsity = my_prune(net, prune_amount, initial_state, weight_init_type, args.model)
 
     if (not(args.vanilla_train)):
-        pkl.dump(results, open("results/results_final.p", "wb"))
+        pkl.dump(results, open("results/results_final.pkl", "wb"))
     else:
         torch.save(net.state_dict(), 'model.pth')
 
@@ -499,7 +489,7 @@ def my_prune(net, prune_amount, initial_state, weight_init_type, model_type):
             # load the initial weight
             pass
         elif weight_init_type == "xavier_init":
-            net2.apply(xavier_init_weights)
+            net2.apply(weights_init)
             initial_state = copy.deepcopy(net2.state_dict())
         else:
             raise ("You have not mentioned a weight initialization.")
