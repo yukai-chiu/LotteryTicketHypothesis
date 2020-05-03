@@ -6,3 +6,5 @@ __pycache__/
 !/results/.gitkeep
 *.p
 *.DESKTOP-554SJKA
+/netadapt/data/*
+/netadapt/models/fastdepth/*

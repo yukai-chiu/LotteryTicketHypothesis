@@ -523,6 +523,7 @@ if __name__ == "__main__":
     parser.add_argument("--momentum", type=float, default=0.9)
     parser.add_argument("--batch_size", type=int, default=128)
     parser.add_argument("--vanilla_train", type=bool, default=False)
+
     # xavier_init
     # carry_initial(carry over the first weights)
     # carry_previous weights
