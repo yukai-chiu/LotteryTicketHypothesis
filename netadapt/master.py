@@ -112,7 +112,6 @@ def _update_job_list_and_available_gpus(worker_folder, job_list, available_gpus)
             `updated_job_list`: (list of dict) if a worker finishes its job, the job will be removed from this list.
             `updated_available_gpus`: (list) if a worker finishes its job, the gpu will be available.
     '''
-    import ipdb; ipdb.set_trace()
     updated_job_list = []
     updated_available_gpus = available_gpus.copy()
     for job in job_list:

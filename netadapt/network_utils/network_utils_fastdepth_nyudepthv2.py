@@ -96,7 +96,7 @@ class networkUtils_fastdepth_nyudepthv2(NetworkUtilsAbstract):
                 (3) optimizer
         '''
         # Data loaders for fine tuning and evaluation.
-        self.batch_size = 128
+        self.batch_size = 8
         self.num_workers = 4
         self.momentum = 0.9
         self.weight_decay = 1e-4
@@ -272,6 +272,7 @@ class networkUtils_fastdepth_nyudepthv2(NetworkUtilsAbstract):
             # target_onehot.scatter_(1, target, 1)
             # target.squeeze_(1)
             input, target = input.cuda(), target.cuda()
+            print("Input: {0}, Target: {1}".format(input.shape, target.shape))
             # target_onehot = target_onehot.cuda()
 
             pred = model(input)
