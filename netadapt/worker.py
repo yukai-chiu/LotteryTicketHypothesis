@@ -36,6 +36,7 @@ def worker(args):
     """
 
     # Set the GPU.
+    print(torch.cuda.is_available())
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
     # Get the network utils.
