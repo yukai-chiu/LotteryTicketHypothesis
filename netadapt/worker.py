@@ -4,7 +4,8 @@ import os
 import common 
 import constants 
 import network_utils as networkUtils
-
+import sys
+sys.path.append('../LotteryTicketHypothesis')
 from  models.fastdepth import *
 
 '''

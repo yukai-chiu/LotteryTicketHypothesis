@@ -24,7 +24,7 @@ from  models.fastdepth import MobileNetSkipAdd
 # Define constants.
 _MASTER_FOLDER_FILENAME = 'master'
 _WORKER_FOLDER_FILENAME = 'worker'
-_WORKER_PY_FILENAME = 'worker.py'
+_WORKER_PY_FILENAME = 'netadapt/worker.py'
 _HISTORY_PICKLE_FILENAME = 'history.pickle'
 _HISTORY_TEXT_FILENAME = 'history.txt'
 _SLEEP_TIME = 1
