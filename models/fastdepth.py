@@ -745,6 +745,7 @@ class MobileNetSkipAdd(nn.Module):
 		mobilenet = imagenet.mobilenet.MobileNet()
 		if pretrained_encoder:
 			pretrained_path = os.path.join(
+				os.getcwd(),
 				"imagenet",
 				"results",
 				"imagenet.arch=mobilenet.lr=0.1.bs=256",

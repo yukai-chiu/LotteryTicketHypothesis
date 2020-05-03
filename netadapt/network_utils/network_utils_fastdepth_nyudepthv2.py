@@ -102,8 +102,8 @@ class networkUtils_fastdepth_nyudepthv2(NetworkUtilsAbstract):
         self.weight_decay = 1e-4
         self.finetune_lr = finetune_lr
 
-        train_dataset = NYUDataset(root="../data/nyudepthv2/train", split="train")
-        val_dataset = NYUDataset(root="../data/nyudepthv2/val", split="val")
+        train_dataset = NYUDataset(root="data/nyudepthv2/train", split="train")
+        val_dataset = NYUDataset(root="data/nyudepthv2/val", split="val")
         
         
         
@@ -163,8 +163,9 @@ class networkUtils_fastdepth_nyudepthv2(NetworkUtilsAbstract):
                 be simplified/pruned.
                 `simplified_resource`: (float) the estimated resource consumption of simplified models.
         '''
-        return fns.simplify_network_def_based_on_constraint(network_def, block, constraint, 
-                                                            resource_type, lookup_table_path)
+        return fns.simplify_network_def_based_on_constraint(network_def, block, constraint,
+                                                            resource_type, lookup_table_path,
+                                                            skip_connection_block_sets=[(1,17),(3,16),(5,15)])
         
 
     def simplify_model_based_on_network_def(self, simplified_network_def, model):

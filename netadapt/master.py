@@ -10,9 +10,9 @@ import warnings
 import common
 import network_utils as networkUtils
 
-#sys.path.append('../LotteryTicketHypothesis/models')
+sys.path.append('../LotteryTicketHypothesis')
 #import ipdb; ipdb.set_trace()
-from  models.fastdepth import *
+from  models.fastdepth import MobileNetSkipAdd
 
 
 '''
@@ -286,8 +286,8 @@ def master(args):
 
         # Initialize variables.
 
-        model = MobileNetSkipAdd(output_size = 224, pretrained_encoder =  False)
-        model.load_state_dict(torch.load('../model.pth'))
+        model = MobileNetSkipAdd(output_size = 224, pretrained_encoder =  True)
+        model.load_state_dict(torch.load('model.pth'))
         #model = torch.load(current_model_path)
         
         # Select network_utils.
