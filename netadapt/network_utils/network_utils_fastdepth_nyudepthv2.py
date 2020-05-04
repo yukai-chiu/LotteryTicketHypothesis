@@ -310,19 +310,24 @@ class networkUtils_fastdepth_nyudepthv2(NetworkUtilsAbstract):
                 # batch_acc = torch.sum(target == pred)
                 # acc += batch_acc.item()
                 # num_samples += pred.shape[0]
+                valid_mask = ((target > 0) + (pred > 0)) > 0
+                metric_output = 1e3 * pred[valid_mask]
+                metric_target = 1e3 * target[valid_mask]
+                maxRatio = torch.max(metric_output / metric_target, metric_target / metric_output)
+                delta1 = float((maxRatio < 1.25).float().mean())
 
-                inv_output = 1.0 / pred
-                inv_target = 1.0 / target
-                abs_inv_diff = (inv_output - inv_target).abs()
-                irmse = math.sqrt((torch.pow(abs_inv_diff, 2)).mean())
+                # inv_output = 1.0 / pred
+                # inv_target = 1.0 / target
+                # abs_inv_diff = (inv_output - inv_target).abs()
+                # irmse = math.sqrt((torch.pow(abs_inv_diff, 2)).mean())
 
                 if i % print_frequency == 0:
                     fns.update_progress(i, len(self.val_loader))
                     print(' ')
         print(' ')
-        print('Test IRMSE: {:4.2f}% '.format(float(irmse)))
+        print('Test delta1: {:4.2f}% '.format(float(delta1)))
         print('===================================================================')
-        return irmse
+        return delta1
         # return acc/num_samples*100
     
 

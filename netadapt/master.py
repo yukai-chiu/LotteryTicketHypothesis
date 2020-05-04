@@ -9,8 +9,12 @@ import sys
 import warnings
 import common
 import network_utils as networkUtils
+from torch.utils.tensorboard import SummaryWriter
+
 
 sys.path.append('../LotteryTicketHypothesis')
+
+writer = SummaryWriter( "./runs/" + run_id + "/Lottery_prune_{0}".format(global_sparsity))
 #import ipdb; ipdb.set_trace()
 from  models.fastdepth import MobileNetSkipAdd
 
@@ -328,7 +332,7 @@ def master(args):
         # Print the message.
         print(('Start from iteration {:>3}: current_accuracy = {:>8.3f}, '
                'current_resource = {:>8.3f}').format(current_iter, current_accuracy, current_resource))
-        
+        writer.add_scalar('Accuracy vs. Pruning Iteration', current_accuracy,current_iter)
         
     current_iter += 1
 
@@ -413,11 +417,13 @@ def master(args):
                                       _KEY_BLOCK: current_block,
                                       _KEY_NETWORK_DEF: network_def})
         _save_and_print_history(network_utils, history, history_pickle_file, history_text_file)
+        writer.add_scalar('Accuracy vs. Pruning Iteration', current_accuracy,current_iter)
         del model, network_def
 
         current_iter += 1
         
         print('Finish iteration {}: time {}'.format(current_iter-1, time.time()-start_time))
+    writer.close()
 
 
 if __name__ == '__main__':
