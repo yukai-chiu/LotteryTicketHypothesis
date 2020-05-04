@@ -11,6 +11,8 @@ import common
 import network_utils as networkUtils
 from torch.utils.tensorboard import SummaryWriter
 import time
+import csv
+
 run_id = time.time()
 
 sys.path.append('../LotteryTicketHypothesis')
@@ -51,6 +53,10 @@ _KEY_NUM_OUT_CHANNELS = 'num_out_channels'
 network_utils_all = sorted(name for name in networkUtils.__dict__
     if name.islower() and not name.startswith("__")
     and callable(networkUtils.__dict__[name]))
+
+
+def count_parameters(model):
+    return sum([p.numel() for p in model.parameters() if p.requires_grad])
 
 
 def _launch_worker(worker_folder, model_path, block, resource_type, constraint, netadapt_iteration,
@@ -222,6 +228,10 @@ def master(args):
     """
 
     # Set the important paths.
+    results_csv = open('solution.csv', mode='w')
+    res_csv = csv.writer(results_csv, delimiter=',')
+    res_csv.writerow(['iteration' , 'parameters'])
+
     master_folder = os.path.join(args.working_folder, _MASTER_FOLDER_FILENAME)
     worker_folder = os.path.join(args.working_folder, _WORKER_FOLDER_FILENAME)
     history_pickle_file = os.path.join(master_folder, _HISTORY_PICKLE_FILENAME)
@@ -336,7 +346,7 @@ def master(args):
         writer.add_scalar('Accuracy vs. Pruning Iteration', current_accuracy,current_iter)
         
     current_iter += 1
-
+    res_csv.writerow([str(current_iter) , str(count_parameters(model))])
     # Start adaptation.
     while current_iter <= args.max_iters and current_resource > args.budget:
         
@@ -422,9 +432,10 @@ def master(args):
         del model, network_def
 
         current_iter += 1
-        
+        res_csv.writerow([str(current_iter) , str(count_parameters(model))])
         print('Finish iteration {}: time {}'.format(current_iter-1, time.time()-start_time))
     writer.close()
+    results_csv.close()
 
 
 if __name__ == '__main__':
