@@ -10,11 +10,12 @@ import warnings
 import common
 import network_utils as networkUtils
 from torch.utils.tensorboard import SummaryWriter
-
+import time
+run_id = time.time()
 
 sys.path.append('../LotteryTicketHypothesis')
 
-writer = SummaryWriter( "./runs/" + run_id + "/Lottery_prune_{0}".format(global_sparsity))
+writer = SummaryWriter( "./runs/" + str(run_id))
 #import ipdb; ipdb.set_trace()
 from  models.fastdepth import MobileNetSkipAdd
 
