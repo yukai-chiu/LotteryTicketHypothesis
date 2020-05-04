@@ -40,7 +40,7 @@ def worker(args):
     os.environ["CUDA_VISIBLE_DEVICES"] = args.gpu
 
     # Get the network utils.
-    model = MobileNetSkipAdd(output_size = 224, pretrained_encoder =  False)
+    model = MobileNetSkipAdd(output_size = 224, pretrained_encoder =  True)
     model.load_state_dict(torch.load(args.model_path))
     network_utils = networkUtils.__dict__[args.arch](model, args.input_data_shape, args.dataset_path, args.finetune_lr)
     
