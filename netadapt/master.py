@@ -304,7 +304,7 @@ def master(args):
         model = MobileNetSkipAdd(output_size = 224, pretrained_encoder =  True)
         model.load_state_dict(torch.load('model.pth'))
         #model = torch.load(current_model_path)
-        
+        res_csv.writerow([str(current_iter) , str(count_parameters(model))])
         # Select network_utils.
         model_arch = args.arch
         network_utils = networkUtils.__dict__[model_arch](model, args.input_data_shape, args.dataset_path)
@@ -346,7 +346,6 @@ def master(args):
         writer.add_scalar('Accuracy vs. Pruning Iteration', current_accuracy,current_iter)
         
     current_iter += 1
-    res_csv.writerow([str(current_iter) , str(count_parameters(model))])
     # Start adaptation.
     while current_iter <= args.max_iters and current_resource > args.budget:
         
@@ -419,6 +418,7 @@ def master(args):
 
         # Save and print the history.
         model = torch.load(current_model_path)
+        res_csv.writerow([str(current_iter) , str(count_parameters(model))])
         if type(model) is dict:
             model = model[_KEY_MODEL]
         network_def = network_utils.get_network_def_from_model(model)
@@ -432,7 +432,6 @@ def master(args):
         del model, network_def
 
         current_iter += 1
-        res_csv.writerow([str(current_iter) , str(count_parameters(model))])
         print('Finish iteration {}: time {}'.format(current_iter-1, time.time()-start_time))
     writer.close()
     results_csv.close()
